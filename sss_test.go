@@ -4,7 +4,7 @@ import "testing"
 
 /*
 Example:
-  import shamirsecret 
+  import shamirsecret
   # create a new object with some secret...
   mysecret = shamirsecret.ShamirSecret(2, 'my shared secret')
   # get shares out of it...
@@ -15,7 +15,7 @@ Example:
   d = mysecret.compute_share(2)
 
   # Recover the secret value
-  newsecret = shamirsecret.ShamirSecret(2) 
+  newsecret = shamirsecret.ShamirSecret(2)
 
   newsecret.recover_secretdata([a,b,c])  # note, two would do...
 
@@ -31,23 +31,23 @@ Example:
 
 func TestSss(t *testing.T) {
 	mysecret := Shamir.Secret(2, "my shared secret")
-	
+
 	a := mysecret.Share(4)
 	b := mysecret.Share(6)
 	c := mysecret.Share(1)
 	d := mysecret.Share(2)
-	
+
 	newsecret := Shamir.Secret(2)
-	newsecret.Recover(a,b,c)
+	newsecret.Recover(a, b, c)
 	if !newsecret.ValidShare(d) {
-		t.Logf("(%v) was an invalid share",d)
+		t.Logf("(%v) was an invalid share", d)
 		t.Fail()
 	}
-	
+
 	d[1][3] = d[1][3] - 1
 
 	if newsecret.ValidShare(d) {
-		t.Logf("(%v) was a valid share",d)
+		t.Logf("(%v) was a valid share", d)
 		t.Fail()
 	}
 }

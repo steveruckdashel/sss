@@ -23,7 +23,6 @@ package sss
 import (
 	"bytes"
 	"crypto/rand"
-	"os"
 )
 
 // This performs Shamir Secret Sharing operations in an incremental way
@@ -40,7 +39,7 @@ type Shamir struct {
 // If you want to have it create the coefficients, etc. call it with secret data
 func New(threshold int, secretdata string) *Shamir {
 	s := &Shamir{
-		Threshold:    threshhold,
+		Threshold:    threshold,
 		Secretdata:   []byte(secretdata),
 		coefficients: nil,
 	}
@@ -55,11 +54,11 @@ func (s *Shamir) Init() {
 		// this is the polynomial.   The first byte is the secretdata.
 		// The next threshold-1 are (crypto) random coefficients
 		// I'm applying Shamir's secret sharing separately on each byte.
-		thesecoefficients := make([]byte, threshold)
+		thesecoefficients := make([]byte, s.Threshold)
 		thesecoefficients[0] = secretbyte
 		rand.Read(thesecoefficients[1:])
 
-		s.coefficients = append(s.coefficients, thesecoefficients)
+		s.coefficients = append(s.coefficients, thesecoefficients...)
 	}
 }
 
@@ -72,37 +71,35 @@ type Share struct {
 // It returns True if it is valid, False if it is not, and raises
 // various errors when given bad data.
 func (s *Shamir) IsValid(share Share) bool {
-	if self.coefficients == nil {
+	if s.coefficients == nil {
 		panic("Must initialize coefficients before checking is_valid_share")
 	}
 
-	if len(self._coefficients) != len(share[1]) {
+	if len(s.coefficients) != len(share.Fx) {
 		panic("Must initialize coefficients before checking is_valid_share")
 	}
-
-	x, fx = share
 
 	// let's just compute the right value
 	correctshare := s.Compute(share.X)
 
-	return share.Fx == correctshare.Fx
+	return bytes.Equal(share.Fx, correctshare.Fx)
 }
 
 // This computes a share, given x.   It returns a tuple with x and the
 // individual f(x_0)f(x_1)f(x_2)... bytes for each byte of the secret.
 // This raises various errors when given bad data.
-func (s *Shamir) Compute(x int) Share {
+func (s *Shamir) Compute(x int) *Share {
 	if x <= 0 || x >= 255 {
 		panic("In compute_share, x must be between 1 and 255, not: " + string(x))
 	}
 	if s.coefficients == nil {
 		panic("Must initialize coefficients before computing a share")
 	}
-	sharebytes = []byte{}
+	sharebytes := []byte{}
 	// go through the coefficients and compute f(x) for each value.
 	// Append that byte to the share
 	for _, thiscoefficient := range s.coefficients {
-		thisshare = f(x, thiscoefficient)
+		thisshare := f(byte(x), thiscoefficient)
 		sharebytes = append(sharebytes, thisshare)
 	}
 
@@ -117,7 +114,7 @@ func (s *Shamir) Recover(shares []Share) {
 	length := len(shares)
 	for i := 0; i < length; i++ {
 		for j := i + 1; j <= length; j++ {
-			if shares[i] == shares[j] {
+			if shares[i].X == shares[j].X {
 				shares[j] = shares[length]
 				shares = shares[0:length]
 				length--
@@ -130,7 +127,7 @@ func (s *Shamir) Recover(shares []Share) {
 		panic("Threshold:" + string(s.Threshold) + " is smaller than the number of unique shares:" + string(len(shares)) + ".")
 	}
 
-	if self.secretdata == nil {
+	if s.Secretdata == nil {
 		panic("Recovering secretdata when some is stored.   Use check_share instead.")
 	}
 
@@ -138,18 +135,18 @@ func (s *Shamir) Recover(shares []Share) {
 	xs := []byte{}
 	for _, share := range shares {
 		// the first byte should be unique...
-		if bytes.IndexByte(xs, share.X) >= 0 {
-			panic("Different shares with the same first byte! '" + str(share.X) + "'")
+		if bytes.IndexByte(xs, byte(share.X)) >= 0 {
+			panic("Different shares with the same first byte! '" + string(share.X) + "'")
 		}
 		// ...and all should be the same length
 		if len(share.Fx) != len(shares[0].Fx) {
 			panic("Shares have different lengths!")
 		}
-		xs = append(xs, share.X)
+		xs = append(xs, byte(share.X))
 	}
 
-	mycoefficients := []bytes{}
-	mysecretdata := ""
+	mycoefficients := []byte{}
+	mysecretdata := []byte{}
 
 	// now walk through each byte of the secret and do lagrange interpolation
 	// to compute the coefficient...
@@ -158,22 +155,22 @@ func (s *Shamir) Recover(shares []Share) {
 		// we need to get the f(x)s from the appropriate bytes
 		fxs := []byte{}
 		for share := range shares {
-			fxs = append(fxs, share.Fx[byte_to_use])
+			fxs = append(fxs, share[byte_to_use])
 		}
 
 		// build this polynomial
-		resulting_poly = full_lagrange(xs, fxs)
+		resulting_poly := full_lagrange(xs, fxs)
 
 		// If I have more shares than the threshold, the higher order coefficients
 		// (those greater than threshold) must be zero (by Lagrange)...
-		if resulting_poly[:s.Threshold]+byte[len(shares)-s.Threshold] != resulting_poly {
+		if !bytes.Equal(append(resulting_poly[:s.Threshold], make([]byte,len(shares)-s.Threshold)...),resulting_poly) {
 			panic("Shares do not match.   Cannot decode")
 		}
 
 		// track this byte...
-		mycoefficients = append(mycoefficients, resulting_poly)
+		mycoefficients = append(mycoefficients, resulting_poly...)
 
-		mysecretdata = append(resulting_poly[0])
+		mysecretdata = append(mysecretdata, resulting_poly[0])
 	}
 
 	// they check out!   Assign to the real ones!
